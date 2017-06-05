@@ -1,0 +1,85 @@
+1, cài đặt aws cli:
+sudo apt-get install awscli
+2, Setting tài khoản
+   aws configure
+   Access Key ID: AKIAION4AB2EUI3BQBHA
+   Secret Access Key: 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
+   Default region name [us-west-2]: us-west-2
+   Default output format [None]: json
+
+3, create 1 bucket
+aws s3 mb s3://hashnao.info --region ap-northeast-1
+
+4, cấu hình một bucket như một website host
+aws s3 website s3://fakerman --index-document index.html --error-document error.html --region ap-southeast-1
+
+5, Tạo bucket policy và thêm nó tới một bucket
+cat > policy.json <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PublicReadGetObjects",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::fakerman/*"
+        }
+    ]
+}
+EOF
+
+aws s3api put-bucket-policy --bucket fakerman --policy file://policy.json --region ap-southeast-1
+
+6, get configuration của một bucket
+aws s3api get-bucket-website --bucket fakerman --region ap-southeast-1
+
+7, upload một thư mục tới bucket
+aws s3 sync /home/huyhoang/Desktop/s3content/ s3://fakerman --region ap-southeast-1
+
+=========================================================================
+8, Cách estimate s3 cost với amazon caculate 
+http://calculator.s3.amazonaws.com/index.html
+
+9, chỉ định theo dõi cost của một bucket 
+- click vào một bucket sau đó chọn properties -> click vào Tags
+- click add more tags -> nhập key và value vào box ví dụ: key: code, value: 100-A-001
+- Mở billings console :  https://console.aws.amazon.com/billing/home#/
+- Từ left menu click vào preferences
+- tích vào hết các checkbox 
+- nhập tên bucket vào textfield vào nhấn verify 
+để verify bucket thì cần thay đổi lại policy của  bucket như sau: 
+
+{
+    "Version": "2012-10-17",
+    "Id": "Policy1335892530063",
+    "Statement": [
+        {
+            "Sid": "Stmt1335892150622",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::386209384616:root"
+            },
+            "Action": [
+                "s3:GetBucketAcl",
+                "s3:GetBucketPolicy"
+            ],
+            "Resource": "arn:aws:s3:::fakerman"
+        },
+        {
+            "Sid": "Stmt1335892526596",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::386209384616:root"
+            },
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::fakerman/*"
+        }
+    ]
+}
+
+- Sau khi verify bucket nhấn Save preferences 
+- Sau đó click vào manage report tags ở góc phải bên dưới màn hình
+- check vào tags mà mình muốn enable sau đó Save
+có thể view billing cost allocation report tỏng s3 bucket 
+Có thể mất 24h cho aws bắt đầu việc chuyển detail billing report file tới s3 bucket
