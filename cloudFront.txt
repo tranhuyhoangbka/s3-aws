@@ -1,0 +1,75 @@
+là cách đưa nội dung upload lên s3 bucket đến các nơi luư trữ khác nhau được gọi là edge locations,
+có khoảng hơn 50 edge locations trên thế giới, khi user request nội dung từ link cloudfront thì edge location gần
+nhất với user sẽ gởi nội dung về cho user.
+Nội dung trên s3 bucket (origin store) được lưu lại trên các edge location được gọi là cache
+Nội dung được chuyển từ edge locations tới user được gọi là nội dung trên s3 bucket đã được vận chuyển thông qua cloudfront
+
+1, https://console.aws.amazon.com/cloudfront
+2, click vào create distribution button
+3, Trong step 1 có 2 methods để deliver content: chọn web + Get start
+4, Màn hình create distribution hiện ra lần lượt fill vào các field
+- Phần Origin Settings
+Origin Domain Name: Chọn s3 bucket mà muốn config như origin server
+Origin path: để trống
+Origin ID và Restrict bucket access: để mặc định 
+
+- Phần Default cache behavior setting: Tất cả để mặc định
+Object Caching: Chọn mặc định: cache nội dung của bạn ở Cloudfront edge locations trong 24h 
+đây là thời gian mà bạn muốn các object ở lại trong cloudfront caches trước khi cloudfront hướng request khác vào trong
+origin server để kiểm tra xem object đã được update 
+
+Forward cookies, Query String forward: tất cả user cookies trong request urls không hướng tới tất cả các cookie của bạn
+trên origin server
+
+Smooth Streaming: This value helps you decide whether to use the Microsoft
+Smooth Streaming protocol for on-demand streaming. Choose No, if you are
+not planning to use the Microsoft Smooth Streaming format.
+
+Restrict Viewer Access: This value helps you decide whether to access your
+content using a sighed URL such as for a private content. Choose No, if you
+are planning to allow everyone to access your content.
+
+- Distribution Settings:
+Alternate domain Name (CNAMEs): là optional, nếu muốn dùng domain name của bạn thì xác định cname cho cloudfront 
+distribution name. 
+
+ssl certificate: chọn default nếu bạn muốn end users access tới content với cloudfont domain. Ngược lại, bạn có thể
+upload và chọn custom ssh certificate của bạn nếu bạn dùng domain name của bạn và custom ssh certificate với
+những bổ sung mở rộng
+
+Distribution State: Nếu distribution được enabled, cloudfront xử lý và chấp nhận các requests từ viewers cho các nội dung
+được liên kết với distribution này. Nếu không, cloudfront sẽ không chấp nhận bất kỳ request nào
+
+Trong phần này hầu như sẽ để mặc định hết trừ mục:
+Loggin -> ON, bucket for log, log prefix, 
+
+Cuối cùng là click Create distribution button
+Sẽ mất ít nhất 15 phút để chuyển trạng thái từ in progress sang deployed 
+
+SAu khi cloudfront tạo distribution thành công gõ dòng sau vào terminal để thấy các edge locations
+
+dig d34ztun83a4n1g.cloudfront.net
+
+10, Dùng custom domain cho cloudfront domain
+- https://console.aws.amazon.com/route53
+- click on Hosted Zones
+- Chọn domain name bạn muốn tạo 1 alias record và click vào Go to record sets:
+- Click on Create record set
+- In the Name box, enter your record name (cdn)
+- In the Type box, use the default value, A – IPv4 address
+- In the Alias box, choose Yes
+- In the Alias Target box, enter the CloudFront domain name for your distribution (d34ztun83a4n1g.cloudfront.net)
+- click on Create button
+
+- Move the CloudFront console, check the distribution, and click on Distribution Settings:
+- In the General tab, click on Edit:
+- In the Alternate Domain Names (CNAMEs) box, enter the alias record name (cdn.hocrubyonrails.com), and click on Yes, Edit:
+
+Bây giờ khi access http://cdn.hocrubyonrails.com/ruby_sample_key.txt nôi dung giống với
+https://d34ztun83a4n1g.cloudfront.net/ruby_sample_key.txt
+
+Chú ý rằng để mọi người có thể access các content trong bucket qua cloudfront cần public tất cả nội dung trong pucket
+
+11, Đo lường thời gian giữa s3 và Cloudfront 
+Dùng site này để test https://loadimpact.com/
+

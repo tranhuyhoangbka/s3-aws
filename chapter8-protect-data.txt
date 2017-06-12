@@ -1,0 +1,51 @@
+1, SSE (server side encryption) with Amazon S3 key management (SSE-S3)
+1.1, Dùng s3 console
+- access vào 1 bucket, access vào 1 object, click tab Properties, click Encryption, chọn AES-256 và save
+
+
+1.2, Dùng aws cli
+aws s3api put-object --bucket ruby-sdk-sample --key ok.txt --server-side-encryption AES256
+
+2, Sau khi encrypted object ta có thể thấy x-amz-server-side-encryption header được thêm tới object và object được
+encrypted in AES256, dùng command sau để check điều đó 
+curl --head https://s3-ap-southeast-1.amazonaws.com/ruby-sdk-sample/ok.txt
+
+Hoặc
+aws s3api head-object --bucket ruby-sdk-sample --key ok.txt
+
+3, How to protect data using client-side encryption (CSE)
+Khi dùng client-side encryption, aws SDKs dùng Amazon s3 encryption client để encrypt data và data được encrypted 
+trước khi gửi tới s3 bucket. Amazon s3 chỉ nhận encrypted data và không encrypt hay decrypt data.
+client-side encryption có 2 options cho việc dùng encryption keys
+
+3.1, AWS KMS-managed customer master key (CMK)
+Khi dùng Amazon s3 encryption client trong aws sdk, client gọi aws kms để xác định rằng user được phép dùng customer
+master key. Nếu vậy, Kms sẽ trả về 2 version của data encryption key; 1 plaintext data key và 1 là các chấm tròn lồng 
+nhau của data key đã encrypted với customer master key.encryption client sau đó encrypt data dùng plaintext key và
+remove đó trong memory. encrypted data key được gửi tới amazon s3 và được lưu với encrypted data trong s3
+
+3.2 The client-side master key
+Sự khác nhau giữa 2 loại là client-side master key và encrypted data không bao giờ được gửi tới aws. Amazon s3 encryption
+application tạo ra 1 lần dùng envelope symmetric key (key phong bì đối xứng) để encrypt data của một s3 object cục bộ và
+encrypt envelope key dùng master key. client upload envelope key như bộ phận của metadata để đồng nhất key được dùng
+để encrypt envelope key với encrypted data, và sau đó amazon s3 lưu encrypted data  key như object metadât
+Nếu bạn mất các encryption keys, bạn sẽ không bao giờ có khả năng decrypt data của bạn bời vì họ không đươc gửi tới s3.
+
+gem install aws-sdk -v '~>1'
+
+require 'aws-sdk-v1'
+require 'openssl'
+AWS.config(access_key_id: 'AKIAIZCFMDGRS26WYCDQ', secret_access_key: 'J4Jl7PWF2n+n3fHa0a9EX6BYomyx2YAwZFqj/LC1', region: 'ap-southeast')
+s3 = AWS::S3::Client.new
+bucket = 'ruby-sdk-sample'
+object = 'ruby.txt'
+data = (0...8).map{ (65 + rand(26)).chr }.join
+symmetric_key = OpenSSL::Cipher::AES256.new(:CBC).random_key
+options = { :encryption_key => symmetric_key }
+s3_object = AWS.s3.buckets[bucket].objects[object]
+s3_object.write(data, options)
+puts "# Reading the object from S3 and decrypting."
+puts s3_object.read(options)
+puts "# Reading the object from S3 without decrypting."
+puts s3_object.read
+s3_object.delete

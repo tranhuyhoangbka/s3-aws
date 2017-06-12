@@ -1,0 +1,174 @@
+1, có 2 dạng policy là resource-base policy và user policy
+
+2, walkthrough 1: cung cấp cho user các bucket permissions
+kịch bản:
+- có một aws account là owner của 1 bucket, và có một Iam user
+- Iam user ko có quyền và cần được cấp quyền để thao tác trên bucket
+- bucket owner và parent account là giống nhau
+- aws account có thể dùng a bucket policy, 1 user policy hoặc cả hai để cung cấp quyền cho user của nó trên bucket
+- Tạo một tài khoản accountAadmin và cấp admin permissions với full access to nó. Đăng nhập bằng account này và tạo 1 bucket
+- Tạo một tài khoản khác Iam user, sau đó cung cấp bucket policy và user policy để user đó có thể access bucket
+- dùng Aws cli để upload 1 sample object tới bucket dùng tài khoản iam thường vừa tạo
+
+- Dùng tài khoản root để tạo AccountAadmin, chọn cả 2 loại sinh password là password đăng nhập aws console thông thường
+và credentials, sau đó đính kèm policy AdministratorAccess cho account này.
+Sau khi tạo AccountAadmin này xong thì signout root account và đăng nhập vào aws console bằng tài khoản này
+https://normale-profile.signin.aws.amazon.com/console
+
+Sau đó tạo một bucket và 1 tài khoản Iam bình thường( tài khoản này không cần đính kèm bất kỳ user policy nào, chỉ cần
+lưu lại access id, và creditial của nó)
+
+- bucket name: hoang-policy-test, click vào nó. Chọn tab permissions, click button bucket policy
+arn:aws:iam::366875882767 (cái này là id của Aws account root)
+Cấu hình bên dưới cho phép tom Iam user có thể get bucket location, list buckets, get các object của bucket
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListGet",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::366875882767:user/tom"
+      },
+      "Action": [
+        "s3:GetBucketLocation",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::hoang-policy-test"
+      ]
+    },
+    {
+      "Sid": "GetObject",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::366875882767:user/tom"
+      },
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::hoang-policy-test/*"
+      ]
+    }
+  ]
+}
+
+
+"Principal": Danh sách các Iam user trong aws account được cấp các permission trong
+Action element, Resource element xác định các s3 buckets mà cho phép thực hiện các
+actions 
+
+- Thêm inline custom policy cho Iam user (tom)
+  In the IAM console, click on Users, and then click on the IAM user
+  Click Add inline policy 
+  Select Custom Policy and then, click on the Select button:
+
+  Policy Name: PutOperation
+  Policy Document:
+  {
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PermissionForObjectOperations",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::hoang-policy-test/*"
+      ]
+    }
+  ]
+}
+
+Đây là inline custom policy cho phép Iam user put object tới một bucket
+click button: apply policy
+
+- Kiểm tra lại xem các bucket policy và user policy
+login aws cli với tom account: aws configure
+
+- Kiểm tra xem Iam user có thể upload 1 file dùng aws cli
+aws s3api put-object --bucket "hoang-policy-test" --key policy_test.txt --body policy_test.txt
+aws s3api get-object --bucket hoang-policy-test --key policy_test.txt output_file.txt
+
+****** Một số ví dụ khác
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AddCannedAcl",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": [
+          "arn:aws:iam::AccountA-ID:user/username-a",
+          "arn:aws:iam::AccountB-ID:user/username-b"
+        ]
+      },
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::bucket-a/*",
+        "arn:aws:s3:::bucket-b/*"
+      ],
+      "Condition": {
+        "IpAddress": {
+          "aws:SourceIp": [
+            "10.1.1.0/24",
+            "10.10.1.0/24"
+          ]
+        },
+        "NotIpAddress": {
+          "aws:SourceIp": [
+            "10.1.1.0/30",
+            "10.10.1.0/30"
+          ]
+        }
+      }
+    }
+  ]
+}
+
+****  Create Your Own Policy
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListSpecificPrefix",
+      "Action": [
+        "s3:ListBucket"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "arn:aws:s3:::bucket-a"
+      ],
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": [
+            "${aws:username}/*"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AllowOperations",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::bucket-a/${aws:username}/*"
+    }
+  ]
+}
+
+Add this policy to a new group
+- In the Dashboard section on the left-hand side, click on Groups and Create New Group
+- In the Group Name box, enter a group name, and click on Next Step:
+- In the Policy Type box, enter the policy name, choose the policy, and then click on Next Step:
+- After reviewing the configuration, click on Create Group:

@@ -1,0 +1,71 @@
+Giới thiệu:
+Cross origin resource sharing (CORS) cho phép client web application access tới s3 resources trong 1 domain khác 
+bằng việc định nghĩa CORS configuration trong XML document được attached với bucket. Nó cho phép cross-origin requests
+cho client-side application dùng CORS. Ví dụ, giả sử bạn có web server trên EC2 instance và muốn dùng javascript
+trên các webpage để access JSON file trong 1 s3 static website. Bạn có thể cấu hình bucket để bật cross-origin request
+từ webserver 
+
+CORS can define rules in the XML configuration document, for example, the methods
+( GET , PUT , POST , DELETE , and HEAD ), the origins ( http://xxx , http://*.com ), the
+headers (Authorization, Content-Type, x-amz-xxx, and so on), and the time in seconds to
+cache the response
+
+1, Walkthrough 1: Enabling CORS through the S3 console
+
+Đầu tiên chúng ta cấu hình CORS tới s3 bucket qua s3 console, và xác định rằng CORS configuration đã được apply
+bằng việc put 1 json file lên s3 bucket và một html file trong 1 webserver trên EC2 instancee. test.json chứa sample 
+data, index.html dùng javascript để lấy data bằng việc sending ajax request tới json file
+
+1.1, https://console.aws.amazon.com/s3
+1.2, click vào bucket name, click permissions, click CORS configuation
+pass đoạn xml sau và click save button
+
+<CORSConfiguration>
+   <CORSRule>
+      <AllowedOrigin>*</AllowedOrigin>
+      <AllowedMethod>GET</AllowedMethod>   (GEt, put, post, delete, head)
+      <AllowedHeader>*</AllowedHeader>
+      <MaxAgeSeconds>3000</MaxAgeSeconds>
+   </CORSRule>
+</CORSConfiguration>
+
+- AllowedOrigin: Xác định các loại trang web mà bạn muốn cho phép cross-origin request ví dụ http://yourdomain.com or https://yourdomain.com, http://*.yourdomain.com, nếu chỉ dùng * thì nó cho phép tất cả các loại trang web 
+- AllowedHeader: xác định các request headers được cho phép
+- MaxAgeSeconds: Xác định thời gian mà trình duyệt cache response cho một resource xác định, browser sẽ ko cần gửi
+request tới s3 bucket trong thời gian được cache 
+
+
+1.3, Tạo file cors/test.json trong bucket:
+
+{
+  "id": "9561998e-af32-4671-b93e-2a95018de746",
+  "username": "hashnao",
+  "email": "mrhashnao@gmail.com"
+}
+
+Như vậy các web application từ đây có thể dùng ajax để load nội dung từ json file thoải mái 
+
+2, Walkthrough 2: Enabling CORS using AWS CLI
+
+-  aws s3api put-bucket-cors --bucket hocrubyonrails.com --cors-configuration file://cors_file.json
+
+cors_file.json:
+{
+   "CORSRules": [
+      {
+         "AllowedHeaders": [
+            "Authorization"
+         ],
+         "MaxAgeSeconds": 3000,
+         "AllowedMethods": [
+            "GET"
+         ],
+         "AllowedOrigins": [
+            "*"
+         ]
+      }
+   ]
+}
+
+- aws s3api get-bucket-cors --bucket hocrubyonrails.com
+-  aws s3api delete-bucket-cors --bucket bucket_name

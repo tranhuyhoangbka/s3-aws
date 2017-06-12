@@ -1,11 +1,18 @@
+chú ý: có thể tạo mới access key id và Secret key của một user bất cú lúc nào
+vào mục IAM chọn users, chọn 1 user chọn tab security credentials, click vào button create access key
+
+
 1, cài đặt aws cli:
 sudo apt-get install awscli
 2, Setting tài khoản
    aws configure
-   Access Key ID: AKIAION4AB2EUI3BQBHA
-   Secret Access Key: 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
+   Access Key ID: AKIAIZCFMDGRS26WYCDQ
+   Secret Access Key: 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
    Default region name [us-west-2]: us-west-2
    Default output format [None]: json
+
+Chú ý mỗi lần chạy lệnh này: nội dung file ~/.aws/config sẽ tự động được cập nhật theo những gì đã nhập
+Như vậy 1 cách khác để config awcli là thay đổi nội dung file này 
 
 3, create 1 bucket
 aws s3 mb s3://hashnao.info --region ap-northeast-1
@@ -30,6 +37,14 @@ cat > policy.json <<EOF
 EOF
 
 aws s3api put-bucket-policy --bucket fakerman --policy file://policy.json --region ap-southeast-1
+
+aws s3api get-bucket-location --bucket ${bucket}
+
+aws s3api get-object --bucket ${bucket} --key ${object} output_file.txt
+
+aws s3 ls s3://${bucket}
+
+aws s3api put-object --bucket ${bucket} --key ${object} --body ${object}
 
 6, get configuration của một bucket
 aws s3api get-bucket-website --bucket fakerman --region ap-southeast-1
@@ -83,3 +98,4 @@ http://calculator.s3.amazonaws.com/index.html
 - check vào tags mà mình muốn enable sau đó Save
 có thể view billing cost allocation report tỏng s3 bucket 
 Có thể mất 24h cho aws bắt đầu việc chuyển detail billing report file tới s3 bucket
+

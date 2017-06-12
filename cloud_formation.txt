@@ -1,0 +1,130 @@
+Để lưu lại các cấu hình aws để có thể sử dụng lại nhiều lần
+1, https://console.aws.amazon.com/cloudformation
+2, click Create New Stack button
+3, chọn mục upload a template to Amazon s3
+sau đó upload một file json có nội dung như sau:
+
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "AWS CloudFormation Template for S3 Static Website",
+  "Parameters": {
+    "HostingBucketName": {
+      "Type" : "String",
+      "Description": "S3 Bucket Name for Static Website",
+      "Default" : "test.hocrubyonrails.com"
+    },
+    "LoggingBucketName": {
+      "Type" : "String",
+      "Description": "S3 Bucket Name for Server Access Logging",
+      "Default" : "log.hocrubyonrails.com"
+    }
+  },
+  "Resources" : {
+    "HostingBucket" : {
+      "Type" : "AWS::S3::Bucket",
+      "Properties" : {
+        "BucketName" : { "Ref" : "HostingBucketName" },
+        "AccessControl": "PublicRead",
+        "WebsiteConfiguration" : {
+          "IndexDocument" : "index.html",
+          "ErrorDocument" : "error.html"
+        },
+        "LoggingConfiguration": {
+          "DestinationBucketName": { "Ref" : "LoggingBucketName" },
+          "LogFilePrefix": "logs/"
+        }
+      }
+    },
+    "LoggingBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName" : { "Ref" : "LoggingBucketName" },
+        "AccessControl": "LogDeliveryWrite"
+      }
+    },
+    "HostingBucketPolicy" : {
+      "Type" : "AWS::S3::BucketPolicy",
+      "Properties" : {
+        "PolicyDocument" : {
+          "Version" : "2012-10-17",
+          "Id" : "PublicReadGet",
+          "Statement" : [ {
+            "Sid" : "ReadAccess",
+            "Action" : [ "s3:GetObject" ],
+            "Effect" : "Allow",
+            "Resource" : { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "HostingBucket" } , "/*" ] ] },
+            "Principal" : "*"
+          } ]
+        },
+        "Bucket" : { "Ref" : "HostingBucket" }
+      }
+    }
+  },
+  "Outputs" : {
+    "S3HostingBucketEndpoint" : {
+      "Value" : { "Fn::Join" : ["", [ "https://", { "Ref" : "HostingBucket" }, ".s3.amazonaws.com/" ] ] }
+    },
+    "S3HostingBucketName" : {
+      "Value" : { "Ref" : "HostingBucket" }
+    },
+    "ServerAccessLoggingBucketName" : {
+      "Value" : { "Ref" : "LoggingBucket" }
+    }
+  }
+}
+
+chỉ cần thay đổi mục default của HostingBucketName, LoggingBucketName tới tên hosting bucket name và login bucket name của bạn
+xác định index document và error document cho server bucket, cấu hình login cho bucket đó (prefix, destination)
+xác định hosting bucket policy
+sau khi upload file nhấn next
+
+4, Nhập tên stack, sau đó nhấn next, bỏ qua màn hình setting tag, nhấn next kiểm tra lại thông tin ở màn hình tiếp theo
+sau đó nhấn create 
+quá trình tạo hosting bucket sẽ diễn ra, một lát sau kiểm tra lại trên s3 service sẽ có các bucket được tạo ra
+test.hocrubyonrails.com, log.hocrubyonrails.com
+
+5, xóa stack 
+đôi khi chúng ta cần xóa các resources trong stack khi project kết thúc hoặc website bị close 
+chỉ cần vào https://console.aws.amazon.com/cloudformation
+sau đó chọn stack đó, và chọn action delete stack
+
+để cloud formation có thể xóa được các bucket thì trước tiên cần xóa tất cả các object trong bucket trước
+
+**************************************************************************************
+
+
+Thay vì upload 1 file json, ta có thể chọn mục Specify an Amazon S3 template URL và enter vào một url 
+tới 1 file json trong bucket và chứa định nghĩa stack 
+Để làm được điều này trước tiên phải upload file template đầy đủ thông tin lên một bucket sau đó lấy url của file đó
+nếu file đó không có dữ liệu thì sẽ ko tạo được stack
+ưu điểm của các này là sẽ không có một temp bucket được tạo ra để chứa file template 
+
+
+============================================================
+6, Deplay 1 cloud formation template bằng aws cli
+Trước hết cần enable các policy full access to s3, full access to cloudfront cho tài khoản mà được dùng với aws cli
+
+- Câu lệnh kiểm tra liệu template có validate không ?
+
+aws cloudformation validate-template --template-url "https://s3-ap-southeast-1.amazonaws.com/hocrubyonrails.com/S3Hosting.json"
+
+Nếu validate nó sẽ trả về các params đã xac định trong template
+
+- Câu lệnh tạo một new stack:
+
+aws cloudformation create-stack --stack-name "s3-static-website" --template-url "https://s3-ap-southeast-1.amazonaws.com/hocrubyonrails.com/S3Hosting.json" --parameters ParameterKey=HostingBucketName,ParameterValue="test.hocrubyonrails.com" ParameterKey=LoggingBucketName,ParameterValue="log.hocrubyonrails.com"
+
+- Câu lệnh liệt kê các stacks với một filter theo status
+
+aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE
+
+- Câu lệnh xem thông tin chi tiết một stack:
+
+aws cloudformation describe-stack-resources --stack-name s3-static-website
+
+- Câu lệnh xóa stack
+chú ý cần đảm bảo các bucket không còn chứa object nào trước khi xóa stack
+
+aws cloudformation delete-stack --stack-name s3-static-website
+aws cloudformation list-stacks --stack-status-filter DELETE_COMPLETE
+
